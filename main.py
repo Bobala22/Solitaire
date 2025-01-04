@@ -179,12 +179,9 @@ def can_place_on_tableau(target_pile, card):
     return is_opposite_color(top_card[1], card[1]) and card[0] == top_card[0] - 1
 
 def can_place_on_foundation(foundation_pile, card):
-    print("Foundation pile: ", foundation_pile)
-    print("Card: ", card)
     if not foundation_pile:
         return card[0] == 1  # only A on empty foundation
     top_card = foundation_pile[-1]
-    print("Top card is: ", top_card, "card is: ", card)
     return card[1] == top_card[1] and card[0] == top_card[0] + 1
 
 def win_game():
@@ -206,33 +203,6 @@ def draw_win_screen():
     title_text = font.render("You Win!", True, text_color)
     display_surf.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, 50))
     pygame.display.flip()
-
-def lost_game():
-    for source_pile_index in tableau:
-        source_pile = tableau[source_pile_index]
-        for card_index, card in enumerate(source_pile):
-            if card[2]:  
-                if can_move_to_foundations(card):
-                    return False  
-                for dest_pile_index in tableau:
-                    if dest_pile_index != source_pile_index:
-                        dest_pile = tableau[dest_pile_index]
-                        if can_place_on_tableau(dest_pile, card):
-                            return False  
-                sequence = source_pile[card_index:]
-                for dest_pile_index in tableau:
-                    if dest_pile_index != source_pile_index:
-                        dest_pile = tableau[dest_pile_index]
-                        if can_place_sequence_on_tableau(dest_pile, sequence):
-                            return False
-    for card in talon:
-        if can_move_to_foundations(card):
-            return False
-        for dest_pile_index in tableau:
-            dest_pile = tableau[dest_pile_index]
-            if can_place_on_tableau(dest_pile, card):
-                return False
-    return True 
 
 def can_move_to_foundations(card):
     foundation_pile = foundations[card[1]]
@@ -256,7 +226,6 @@ def start_game(difficulty):
             x = talon_width_pos
             y = talon_height_pos
             card = talon[0]
-            print("Card: ", card)
             display_surf.blit(card_images[(card[0], card[1])], (x, y))
             card_rect = pygame.Rect(x, y, card_width, card_height)
             talon_positions.append(card_rect)
@@ -268,8 +237,6 @@ def start_game(difficulty):
                 talon = stock[-1:]
                 for i in range(len(talon)):
                     card = talon[i]
-                    print("Card: ", card)
-                    print("Card[1]: ", card[1])
                     talon[i] = (card[0], card[1], True)
                 stock = stock[:-1]
                 stock = talon + stock
@@ -304,7 +271,6 @@ def start_game(difficulty):
     while True:
         if win_game():
             draw_win_screen()
-            break
         display_surf.fill(bg_color)
         draw_tableau()
         draw_stock()
@@ -377,33 +343,37 @@ def start_game(difficulty):
                 placed = False
 
                 # try to place on tableau
-                for key in tableau:
-                    pile_x = tableau_width_pos + (int(key) - 1) * 100
-                    pile_rect = pygame.Rect(pile_x, talon_height_pos, card_width, SCREEN_HEIGHT - talon_height_pos)
-                    if pile_rect.collidepoint(mouse_pos):
-                        if can_place_on_tableau(tableau[key], drag_card[0]):
-                            tableau[key].extend(drag_card)
-                            placed = True
-                            if 'talon' in drag_from:
-                                cards_to_remove.append(drag_card)
-                            if 'tableau' in drag_from:
-                                if tableau[drag_from[1][0]]:
-                                    tableau[drag_from[1][0]][-1] = (tableau[drag_from[1][0]][-1][0], tableau[drag_from[1][0]][-1][1], True)
-                                else:
-                                    tableau[drag_from[1][0]] = []
-                        break
-                
+                if not placed:
+                    for key in tableau:
+                        pile_x = tableau_width_pos + (int(key) - 1) * 100
+                        last_card_y = tableau_height_pos + (len(tableau[key]) - 1) * 20  # Adjust offset as needed
+                        last_card_rect = pygame.Rect(pile_x+20, last_card_y+20, card_width+20, card_height+20)
+                        if last_card_rect.collidepoint(mouse_pos):
+                            if can_place_on_tableau(tableau[key], drag_card[0]):
+                                tableau[key].extend(drag_card)
+                                placed = True
+                                if 'talon' in drag_from:
+                                    cards_to_remove.append(drag_card)
+                                if 'tableau' in drag_from:
+                                    if tableau[drag_from[1][0]]:
+                                        tableau[drag_from[1][0]][-1] = (
+                                            tableau[drag_from[1][0]][-1][0],
+                                            tableau[drag_from[1][0]][-1][1],
+                                            True
+                                        )
+                                    else:
+                                        tableau[drag_from[1][0]] = []
+                            break
+                       
                 # try to place on foundation
                 if not placed:
                     if len(drag_card) == 1:
-                        print("just one card dragged!")
                         suits = ['hearts', 'diamonds', 'clubs', 'spades']
                         for i, suit in enumerate(suits):
                             x = foundations_width_pos + i * 100
                             y = foundations_height_pos
                             found_rect = pygame.Rect(x, y, card_width, card_height)
                             if found_rect.collidepoint(mouse_pos):
-                                print("Try to place on foundation: ", drag_card)
                                 if can_place_on_foundation(foundations[suit], drag_card[0]):
                                     foundations[suit].append(drag_card[0])
                                     placed = True
@@ -414,9 +384,6 @@ def start_game(difficulty):
                                             tableau[drag_from[1][0]][-1] = (tableau[drag_from[1][0]][-1][0], tableau[drag_from[1][0]][-1][1], True)
                                         else:
                                             tableau[drag_from[1][0]] = []
-                                break
-                    else: 
-                        print("more than one card dragged!")
 
                 if not placed:
                     if drag_from[0] == 'talon':
