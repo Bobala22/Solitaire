@@ -8,11 +8,12 @@ pygame.init()
 FPS = 60
 FramePerSec = pygame.time.Clock()
 
+TIMER_FONT = pygame.font.Font(None, 36)
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
 display_surf = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-bg_color = pygame.Color(53, 162, 72)
-display_surf.fill(bg_color)
+BG_COLOR = pygame.Color(53, 162, 72)
+display_surf.fill(BG_COLOR)
 
 # display positions
 CARD_WIDTH = 81
@@ -37,13 +38,14 @@ card_images = {}
 back_image = pygame.image.load(back_of_card)
 back_image = pygame.transform.scale(back_image, (CARD_WIDTH, CARD_HEIGHT))
 deck_of_cards = []
+new_game_button_rect = pygame.Rect(SCREEN_WIDTH - 150, SCREEN_HEIGHT - 60, 140, 50)
 
 tableau = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
 foundations = {"hearts": [], "diamonds": [], "clubs": [], "spades": []}
 stock = []
 talon = []
 
-bg_color = pygame.Color(53, 162, 72)
+BG_COLOR = pygame.Color(53, 162, 72)
 button_color = (255, 255, 255)
 button_hover_color = (200, 200, 200)
 text_color = (0, 0, 0)
@@ -62,6 +64,15 @@ drag_from = None
 drag_offset = (0, 0)
 drag_pos = (0, 0)
 
+def draw_timer():
+    """
+    Function used to draw the timer on the screen. It will display the elapsed time since the game started.
+    """
+    elapsed_time = (pygame.time.get_ticks() - start_time) // 1000
+    minutes = elapsed_time // 60
+    seconds = elapsed_time % 60
+    timer_text = TIMER_FONT.render(f"Time: {minutes:02}:{seconds:02}", True, text_color)
+    display_surf.blit(timer_text, (SCREEN_WIDTH - 150, 10))
 
 def load_card_images():
     """
@@ -102,7 +113,7 @@ def draw_intro_screen():
     """
     Draw the menu screen with the title and buttons for choosing the difficulty (easy or hard).
     """
-    display_surf.fill(bg_color)
+    display_surf.fill(BG_COLOR)
 
     title_text = font.render("Solitaire", True, text_color)
     subtitle_text = button_font.render("Choose your difficulty", True, text_color)
@@ -280,13 +291,139 @@ def remove_card():
                     stock.remove(card11)
                     break
 
+def draw_new_game_button():
+    """
+    Function to draw the new game button on the screen.
+    """
+    button_font = pygame.font.SysFont(None, 36)
+    new_game_text = button_font.render("New Game", True, text_color)
+    
+    mouse_pos = pygame.mouse.get_pos()
+    if new_game_button_rect.collidepoint(mouse_pos):
+        pygame.draw.rect(display_surf, (220, 220, 220), new_game_button_rect, border_radius=15)
+    else:
+        pygame.draw.rect(display_surf, (180, 180, 180), new_game_button_rect, border_radius=15)
+
+    display_surf.blit(
+        new_game_text,
+        (
+            new_game_button_rect.centerx - new_game_text.get_width() // 2,
+            new_game_button_rect.centery - new_game_text.get_height() // 2
+        )
+    )
+
+def check_new_game_button_click():
+    """
+    Function to check if the new game button has been clicked. If it has, the main menu will be displayed again.
+    """
+    global start_time, game_won
+    for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if new_game_button_rect.collidepoint(event.pos):
+                start_time = pygame.time.get_ticks()
+                game_won = False
+                main()
+
+game_won = False
 
 def draw_win_screen():
     """
-    After the game is won, this function will display a message on the screen.
+    After the game is won, this function will display a message on the screen and provide buttons to play again or exit. 
+    It will also display the best 3 times that have been achieved so far and save the current time.
     """
+    global game_won, start_time
+    elapsed_time = 0
+    if not game_won:
+        elapsed_time = (pygame.time.get_ticks() - start_time) // 1000
+
+        # Save the time to a file
+        with open("best_times.txt", "a") as file:
+            file.write(f"{elapsed_time}\n")
+
+        game_won = True
+
+    minutes = elapsed_time // 60
+    seconds = elapsed_time % 60
+    time_str = f"{minutes:02}:{seconds:02}"
+
+    # Read the best 3 times
+    with open("best_times.txt", "r") as file:
+        times = [int(line.strip()) for line in file]
+    best_times = sorted(times)[:3]
+
+    display_surf.fill(BG_COLOR)
     title_text = font.render("You Win!", True, text_color)
-    display_surf.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, 50))
+    display_surf.blit(
+        title_text,
+        (SCREEN_WIDTH // 2 - title_text.get_width() // 2, 50)
+    )
+
+    time_text = TIMER_FONT.render(f"Your Time: {time_str}", True, text_color)
+    display_surf.blit(
+        time_text,
+        (SCREEN_WIDTH // 2 - time_text.get_width() // 2, 100)
+    )
+
+    best_times_text = TIMER_FONT.render("Best Times:", True, text_color)
+    display_surf.blit(
+        best_times_text,
+        (SCREEN_WIDTH // 2 - best_times_text.get_width() // 2, 150)
+    )
+
+    for i, best_time in enumerate(best_times):
+        minutes = best_time // 60
+        seconds = best_time % 60
+        best_time_str = f"{minutes:02}:{seconds:02}"
+        best_time_text = TIMER_FONT.render(f"{i + 1}. {best_time_str}", True, text_color)
+        display_surf.blit(
+            best_time_text,
+            (SCREEN_WIDTH // 2 - best_time_text.get_width() // 2, 180 + i * 50)
+        )
+
+    button_font = pygame.font.SysFont(None, 36)
+    play_again_text = button_font.render("Play Again", True, text_color)
+    exit_text = button_font.render("Exit", True, text_color)
+
+    play_again_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2, 300, 100)
+    exit_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 150, 300, 100)
+
+    mouse_pos = pygame.mouse.get_pos()
+
+    if play_again_button_rect.collidepoint(mouse_pos):
+        pygame.draw.rect(display_surf, (220, 220, 220), play_again_button_rect, border_radius=15)
+    else:
+        pygame.draw.rect(display_surf, (180, 180, 180), play_again_button_rect, border_radius=15)
+
+    display_surf.blit(
+        play_again_text,
+        (
+            play_again_button_rect.centerx - play_again_text.get_width() // 2,
+            play_again_button_rect.centery - play_again_text.get_height() // 2
+        )
+    )
+
+    if exit_button_rect.collidepoint(mouse_pos):
+        pygame.draw.rect(display_surf, (220, 220, 220), exit_button_rect, border_radius=15)
+    else:
+        pygame.draw.rect(display_surf, (180, 180, 180), exit_button_rect, border_radius=15)
+
+    display_surf.blit(
+        exit_text,
+        (
+            exit_button_rect.centerx - exit_text.get_width() // 2,
+            exit_button_rect.centery - exit_text.get_height() // 2
+        )
+    )
+
+    # Check for user clicks on the buttons
+    for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if play_again_button_rect.collidepoint(event.pos):
+                main()
+            elif exit_button_rect.collidepoint(event.pos):
+                pygame.quit()
+                sys.exit()
+
     pygame.display.flip()
 
 def start_game(difficulty):
@@ -298,9 +435,9 @@ def start_game(difficulty):
     There will be a difference in the number of cards drawn from the stock pile depending on the difficulty level. 
     In the easy level, only one card will be drawn, while in the hard level, three cards will be drawn.
     """
-    global dragging, drag_card, drag_from, drag_offset, drag_pos
+    global dragging, drag_card, drag_from, drag_offset, drag_pos, game_won
 
-    if difficulty == "easy":
+    if difficulty == "easy": # draw just one card at a time from stock
         talon_drag = 1
 
         def draw_talon():
@@ -322,7 +459,7 @@ def start_game(difficulty):
             This function is used to draw a card from the stock pile and add it to the talon pile.
             """
             global talon, stock
-            if 50 <= mouse_pos[0] <= 121 and 50 <= mouse_pos[1] <= 146:
+            if 50 <= mouse_pos[0] <= 121 and 50 <= mouse_pos[1] <= 146 and len(stock) > 1:
                 talon.clear()
                 talon = stock[-1:]
                 for i in range(len(talon)):
@@ -370,135 +507,111 @@ def start_game(difficulty):
     while True:
         if win_game():
             draw_win_screen()
-        display_surf.fill(bg_color)
-        draw_tableau()
-        draw_stock()
-        draw_foundations()
-        if talon:
-            draw_talon()
-        if dragging:
-            y_offset = 0
-            for card in drag_card:
-                display_surf.blit(
-                    card_images[(card[0], card[1])],
-                    (drag_pos[0], drag_pos[1] + y_offset),
-                )
-                y_offset += 30
+        else:
+            display_surf.fill(BG_COLOR)
+            check_new_game_button_click()
+            draw_new_game_button()
+            draw_tableau()
+            draw_stock()
+            draw_foundations()
+            if talon:
+                draw_talon()
+            if dragging:
+                y_offset = 0
+                for card in drag_card:
+                    display_surf.blit(
+                        card_images[(card[0], card[1])],
+                        (drag_pos[0], drag_pos[1] + y_offset),
+                    )
+                    y_offset += 30
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
 
-            if event.type == MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                draw_from_stock() # draw from the stock
+                if event.type == MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    draw_from_stock() # draw from the stock
 
-                # drag from talon
-                if talon:
-                    for index, rect in enumerate(reversed(talon_positions)):
-                        if rect.collidepoint(mouse_pos):
-                            dragging = True
-                            drag_card = [talon.pop(index - 1)]
-                            drag_from = ("talon", index)
-                            drag_offset = (mouse_pos[0] - rect.x, mouse_pos[1] - rect.y)
-                            drag_pos = (rect.x, rect.y)
-                            talon_drag -= 1
-                            break
-
-                # drag from foundations
-                for key in foundations:
-                    if foundations[key]:
-                        rect = pygame.Rect(
-                            FOUNDATIONS_WIDTH_POS
-                            + (list(foundations.keys()).index(key)) * 100,
-                            FOUNDATIONS_HEIGHT_POS,
-                            CARD_WIDTH,
-                            CARD_HEIGHT,
-                        )
-                        if rect.collidepoint(mouse_pos):
-                            dragging = True
-                            drag_card = [foundations[key].pop()]
-                            drag_from = ("foundations", key)
-                            drag_offset = (mouse_pos[0] - rect.x, mouse_pos[1] - rect.y)
-                            drag_pos = (rect.x, rect.y)
-                            break
-
-                # drag from tablaeu
-                for key in tableau:
-                    for index in range(len(tableau[key]) - 1, -1, -1):
-                        card = tableau[key][index]
-                        if card[2]:  # Face-up card
-                            rect = card_positions[(key, index)]
+                    # drag from talon
+                    if talon:
+                        for index, rect in enumerate(reversed(talon_positions)):
                             if rect.collidepoint(mouse_pos):
                                 dragging = True
-                                drag_card = tableau[key][index:]
-                                drag_from = ("tableau", (key, index))
-                                drag_offset = (
-                                    mouse_pos[0] - rect.x,
-                                    mouse_pos[1] - rect.y,
-                                )
+                                drag_card = [talon.pop(index - 1)]
+                                drag_from = ("talon", index)
+                                drag_offset = (mouse_pos[0] - rect.x, mouse_pos[1] - rect.y)
                                 drag_pos = (rect.x, rect.y)
-                                tableau[key] = tableau[key][:index]
+                                talon_drag -= 1
                                 break
-                    if dragging:
-                        break
 
-            if event.type == MOUSEMOTION and dragging:
-                mouse_pos = pygame.mouse.get_pos()
-                drag_pos = (
-                    mouse_pos[0] - drag_offset[0],
-                    mouse_pos[1] - drag_offset[1],
-                )
+                    # drag from foundations
+                    for key in foundations:
+                        if foundations[key]:
+                            rect = pygame.Rect(
+                                FOUNDATIONS_WIDTH_POS
+                                + (list(foundations.keys()).index(key)) * 100,
+                                FOUNDATIONS_HEIGHT_POS,
+                                CARD_WIDTH,
+                                CARD_HEIGHT,
+                            )
+                            if rect.collidepoint(mouse_pos):
+                                dragging = True
+                                drag_card = [foundations[key].pop()]
+                                drag_from = ("foundations", key)
+                                drag_offset = (mouse_pos[0] - rect.x, mouse_pos[1] - rect.y)
+                                drag_pos = (rect.x, rect.y)
+                                break
 
-            if event.type == MOUSEBUTTONUP and dragging:
-                mouse_pos = pygame.mouse.get_pos()
-                placed = False
-
-                # try to place on tableau
-                if not placed:
+                    # drag from tablaeu
                     for key in tableau:
-                        pile_x = TABLEAU_WIDTH_POS + (int(key) - 1) * 100
-                        last_card_y = (
-                            TABLEAU_HEIGHT_POS + (len(tableau[key]) - 1) * 20
-                        )
-                        # extend with 20px to be sure the hitbox is matched  
-                        last_card_rect = pygame.Rect(
-                            pile_x + 20,
-                            last_card_y + 20,
-                            CARD_WIDTH + 20,
-                            CARD_HEIGHT + 20,
-                        )
-                        if last_card_rect.collidepoint(mouse_pos):
-                            if can_place_on_tableau(tableau[key], drag_card[0]):
-                                tableau[key].extend(drag_card)
-                                placed = True
-                                if "talon" in drag_from:
-                                    cards_to_remove.append(drag_card)
-                                if "tableau" in drag_from:
-                                    if tableau[drag_from[1][0]]:
-                                        tableau[drag_from[1][0]][-1] = (
-                                            tableau[drag_from[1][0]][-1][0],
-                                            tableau[drag_from[1][0]][-1][1],
-                                            True,
-                                        )
-                                    else:
-                                        tableau[drag_from[1][0]] = []
+                        for index in range(len(tableau[key]) - 1, -1, -1):
+                            card = tableau[key][index]
+                            if card[2]:  # Face-up card
+                                rect = card_positions[(key, index)]
+                                if rect.collidepoint(mouse_pos):
+                                    dragging = True
+                                    drag_card = tableau[key][index:]
+                                    drag_from = ("tableau", (key, index))
+                                    drag_offset = (
+                                        mouse_pos[0] - rect.x,
+                                        mouse_pos[1] - rect.y,
+                                    )
+                                    drag_pos = (rect.x, rect.y)
+                                    tableau[key] = tableau[key][:index]
+                                    break
+                        if dragging:
                             break
 
-                # try to place on foundation
-                if not placed:
-                    if len(drag_card) == 1:
-                        suits = ["hearts", "diamonds", "clubs", "spades"]
-                        for i, suit in enumerate(suits):
-                            x = FOUNDATIONS_WIDTH_POS + i * 100
-                            y = FOUNDATIONS_HEIGHT_POS
-                            found_rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
-                            if found_rect.collidepoint(mouse_pos):
-                                if can_place_on_foundation(
-                                    foundations[suit], drag_card[0]
-                                ):
-                                    foundations[suit].append(drag_card[0])
+                if event.type == MOUSEMOTION and dragging:
+                    mouse_pos = pygame.mouse.get_pos()
+                    drag_pos = (
+                        mouse_pos[0] - drag_offset[0],
+                        mouse_pos[1] - drag_offset[1],
+                    )
+
+                if event.type == MOUSEBUTTONUP and dragging:
+                    mouse_pos = pygame.mouse.get_pos()
+                    placed = False
+
+                    # try to place on tableau
+                    if not placed:
+                        for key in tableau:
+                            pile_x = TABLEAU_WIDTH_POS + (int(key) - 1) * 100
+                            last_card_y = (
+                                TABLEAU_HEIGHT_POS + (len(tableau[key]) - 1) * 20
+                            )
+                            # extend with 20px to be sure the hitbox is matched  
+                            last_card_rect = pygame.Rect(
+                                pile_x + 20,
+                                last_card_y + 20,
+                                CARD_WIDTH + 20,
+                                CARD_HEIGHT + 20,
+                            )
+                            if last_card_rect.collidepoint(mouse_pos):
+                                if can_place_on_tableau(tableau[key], drag_card[0]):
+                                    tableau[key].extend(drag_card)
                                     placed = True
                                     if "talon" in drag_from:
                                         cards_to_remove.append(drag_card)
@@ -511,21 +624,49 @@ def start_game(difficulty):
                                             )
                                         else:
                                             tableau[drag_from[1][0]] = []
+                                break
 
-                # if the card was not placed, return it to its original position
-                if not placed:
-                    if drag_from[0] == "talon":
-                        talon.append(drag_card[0])
-                        talon_drag += 1
-                    elif drag_from[0] == "tableau":
-                        tableau[drag_from[1][0]].extend(drag_card)
-                    elif drag_from[0] == "foundations":
-                        foundations[drag_from[1]].append(drag_card[0])
+                    # try to place on foundation
+                    if not placed:
+                        if len(drag_card) == 1:
+                            suits = ["hearts", "diamonds", "clubs", "spades"]
+                            for i, suit in enumerate(suits):
+                                x = FOUNDATIONS_WIDTH_POS + i * 100
+                                y = FOUNDATIONS_HEIGHT_POS
+                                found_rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
+                                if found_rect.collidepoint(mouse_pos):
+                                    if can_place_on_foundation(
+                                        foundations[suit], drag_card[0]
+                                    ):
+                                        foundations[suit].append(drag_card[0])
+                                        placed = True
+                                        if "talon" in drag_from:
+                                            cards_to_remove.append(drag_card)
+                                        if "tableau" in drag_from:
+                                            if tableau[drag_from[1][0]]:
+                                                tableau[drag_from[1][0]][-1] = (
+                                                    tableau[drag_from[1][0]][-1][0],
+                                                    tableau[drag_from[1][0]][-1][1],
+                                                    True,
+                                                )
+                                            else:
+                                                tableau[drag_from[1][0]] = []
 
-                dragging = False
-                drag_card = []
-                drag_from = None
+                    # if the card was not placed, return it to its original position
+                    if not placed:
+                        if drag_from[0] == "talon":
+                            talon.append(drag_card[0])
+                            talon_drag += 1
+                        elif drag_from[0] == "tableau":
+                            tableau[drag_from[1][0]].extend(drag_card)
+                        elif drag_from[0] == "foundations":
+                            foundations[drag_from[1]].append(drag_card[0])
 
+                    dragging = False
+                    drag_card = []
+                    drag_from = None
+
+            draw_timer()
         pygame.display.update()
         FramePerSec.tick(FPS)
 
@@ -534,6 +675,7 @@ def main():
     """
     This is the main function of the program. It will start the game by displaying the intro screen with the buttons for choosing the difficulty level.
     """
+    global start_time
     intro = True
     while intro:
         for event in pygame.event.get():
@@ -544,9 +686,11 @@ def main():
                 mouse_pos = pygame.mouse.get_pos()
                 if easy_button_rect.collidepoint(mouse_pos):
                     intro = False
+                    start_time = pygame.time.get_ticks()
                     start_game("easy")
                 elif hard_button_rect.collidepoint(mouse_pos):
                     intro = False
+                    start_time = pygame.time.get_ticks()
                     start_game("hard")
 
         draw_intro_screen()
