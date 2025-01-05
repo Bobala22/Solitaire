@@ -1,5 +1,4 @@
-## Script pt. a elimina sprite-urile pe care nu le folosesc din pachetul deck-of-cards
-
+## Script to eliminate sprites that are not needed in the deck of cards
 import os
 for card in os.listdir('deck-of-cards'):
    if card.startswith('Back') == False:
