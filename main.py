@@ -40,11 +40,6 @@ back_image = pygame.transform.scale(back_image, (CARD_WIDTH, CARD_HEIGHT))
 deck_of_cards = []
 new_game_button_rect = pygame.Rect(SCREEN_WIDTH - 150, SCREEN_HEIGHT - 60, 140, 50)
 
-tableau = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
-foundations = {"hearts": [], "diamonds": [], "clubs": [], "spades": []}
-stock = []
-talon = []
-
 BG_COLOR = pygame.Color(53, 162, 72)
 button_color = (255, 255, 255)
 button_hover_color = (200, 200, 200)
@@ -312,27 +307,53 @@ def draw_new_game_button():
         )
     )
 
-def check_new_game_button_click():
+def check_new_game_button_click(mouse_pos):
     """
     Function to check if the new game button has been clicked. If it has, the main menu will be displayed again.
     """
-    global start_time, game_won
-    for event in pygame.event.get():
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if new_game_button_rect.collidepoint(event.pos):
-                start_time = pygame.time.get_ticks()
-                game_won = False
-                main()
+    global game_won
+    if new_game_button_rect.collidepoint(mouse_pos):
+        game_won = False
+        main()
+
+def all_cards_face_up():
+    if len(stock) > 1:
+        return False
+    for pile in tableau.values():
+        for card in pile:
+            if not card[2]:  # If any card is face-down
+                return False
+    return True
+
+def move_cards_to_foundation():
+    global game_won
+    while any(tableau.values()):  # While there are cards in the tableau
+        for key in list(tableau.keys()):
+            if tableau[key]:
+                card = tableau[key].pop()
+                foundations[card[1]].append(card)
+                # Add a transition effect here
+                for i in range(10):  # Adjust the range for smoother transition
+                    display_surf.fill(BG_COLOR)
+                    draw_tableau()
+                    draw_foundations()
+                    pygame.display.update()
+                    pygame.time.delay(10)  # Adjust the delay for smoother transition
+    draw_win_screen()
+
+def check_and_move_cards_to_foundation():
+    if all_cards_face_up():
+        move_cards_to_foundation()
 
 game_won = False
+elapsed_time = 0
 
 def draw_win_screen():
     """
     After the game is won, this function will display a message on the screen and provide buttons to play again or exit. 
     It will also display the best 3 times that have been achieved so far and save the current time.
     """
-    global game_won, start_time
-    elapsed_time = 0
+    global game_won, start_time, elapsed_time
     if not game_won:
         elapsed_time = (pygame.time.get_ticks() - start_time) // 1000
 
@@ -509,7 +530,6 @@ def start_game(difficulty):
             draw_win_screen()
         else:
             display_surf.fill(BG_COLOR)
-            check_new_game_button_click()
             draw_new_game_button()
             draw_tableau()
             draw_stock()
@@ -524,6 +544,8 @@ def start_game(difficulty):
                         (drag_pos[0], drag_pos[1] + y_offset),
                     )
                     y_offset += 30
+            
+            check_and_move_cards_to_foundation()
 
             for event in pygame.event.get():
                 if event.type == QUIT:
@@ -532,6 +554,9 @@ def start_game(difficulty):
 
                 if event.type == MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
+
+                    check_new_game_button_click(mouse_pos)
+
                     draw_from_stock() # draw from the stock
 
                     # drag from talon
@@ -602,12 +627,12 @@ def start_game(difficulty):
                             last_card_y = (
                                 TABLEAU_HEIGHT_POS + (len(tableau[key]) - 1) * 20
                             )
-                            # extend with 20px to be sure the hitbox is matched  
+                            # extend with 30px to be sure the hitbox is matched  
                             last_card_rect = pygame.Rect(
-                                pile_x + 20,
-                                last_card_y + 20,
-                                CARD_WIDTH + 20,
-                                CARD_HEIGHT + 20,
+                                pile_x - 30,
+                                last_card_y + 30,
+                                CARD_WIDTH + 40,
+                                CARD_HEIGHT + 40,
                             )
                             if last_card_rect.collidepoint(mouse_pos):
                                 if can_place_on_tableau(tableau[key], drag_card[0]):
@@ -665,17 +690,30 @@ def start_game(difficulty):
                     dragging = False
                     drag_card = []
                     drag_from = None
-
-            draw_timer()
+            if not game_won:
+                draw_timer()
         pygame.display.update()
         FramePerSec.tick(FPS)
 
 
 def main():
     """
-    This is the main function of the program. It will start the game by displaying the intro screen with the buttons for choosing the difficulty level.
+    This is the main function of the program. It will start the game by displaying the intro screen with the buttons for choosing the difficulty level and reseting all the game.
     """
-    global start_time
+    global start_time, talon_positions, cards_to_remove, talon, stock, tableau, foundations, game_won
+
+    tableau = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []}
+    foundations = {"hearts": [], "diamonds": [], "clubs": [], "spades": []}
+    stock = []
+    talon = []
+
+    load_card_images()
+    random.shuffle(deck_of_cards)
+    deal()
+
+    talon_positions = []
+    cards_to_remove = []
+
     intro = True
     while intro:
         for event in pygame.event.get():
@@ -698,11 +736,4 @@ def main():
 
 
 if __name__ == "__main__":
-    load_card_images()
-    random.shuffle(deck_of_cards)
-    deal()
-
-    talon_positions = []
-    cards_to_remove = []
-
     main()
